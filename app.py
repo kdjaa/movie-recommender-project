@@ -1,32 +1,29 @@
-
 import streamlit as st
 import pickle
 import numpy as np
-import pandas as pd
-import requests
-import os
 from pathlib import Path
-from PIL import Image
-from io import BytesIO
 
+# -------------------
+# Paths
+# -------------------
+BASE_DIR = Path(__file__).parent
 
 # -------------------
 # Load saved models
 # -------------------
-with open(r"D:\Ai course MEC\MEC_final_project_2\Recommendation system\model.pkl", "rb") as f:
-    cf_model = pickle.load(f)
+def load_pickle(file_name):
+    file_path = BASE_DIR / file_name
+    if not file_path.exists():
+        st.error(f"Missing file: {file_name}")
+        st.stop()
+    with open(file_path, "rb") as f:
+        return pickle.load(f)
 
-with open(r"D:\Ai course MEC\MEC_final_project_2\Recommendation system\model_2.pkl", "rb") as f:
-    hybrid_model = pickle.load(f)
-
-with open(r"D:\Ai course MEC\MEC_final_project_2\Recommendation system\movie_id_to_title.pkl", "rb") as f:
-    movie_mapping = pickle.load(f)  # movie_id -> title
-
-with open(r"D:\Ai course MEC\MEC_final_project_2\Recommendation system\user_id_map.pkl", "rb") as f:
-    user_mapping = pickle.load(f)  # user_id -> index
-
-with open(r"D:\Ai course MEC\MEC_final_project_2\Recommendation system\interactions_cf_shape.pkl", "rb") as f:
-    interactions_shape = pickle.load(f)  # (num_users, num_items)
+cf_model = load_pickle("model.pkl")
+hybrid_model = load_pickle("model_2.pkl")
+movie_mapping = load_pickle("movie_id_to_title.pkl")
+user_mapping = load_pickle("user_id_map.pkl")
+interactions_shape = load_pickle("interactions_cf_shape.pkl")  # tuple: (num_users, num_items)
 
 # -------------------
 # Helper function to get recommendations
@@ -34,7 +31,7 @@ with open(r"D:\Ai course MEC\MEC_final_project_2\Recommendation system\interacti
 def recommend_movies(model, user_id, num_recommendations=5):
     user_index = user_mapping.get(user_id)
     if user_index is None:
-        return ["User not found!"]
+        return None
 
     # Predict for all items
     scores = model.predict(user_index, np.arange(interactions_shape[1]))
@@ -55,7 +52,6 @@ def recommend_movies(model, user_id, num_recommendations=5):
 st.title("🎬 Movie Recommendation System")
 st.write("Powered by LightFM")
 
-# Select user
 user_id = st.number_input("Enter User ID", min_value=1, step=1)
 
 model_choice = st.radio(
@@ -69,6 +65,9 @@ if st.button("Get Recommendations"):
     else:
         recs = recommend_movies(hybrid_model, user_id)
 
-    st.subheader(f"Recommendations for User {user_id}:")
-    for title, score in recs:
-        st.write(f"⭐ {title} (Score: {score:.2f})")
+    if recs is None:
+        st.warning(f"User ID {user_id} not found in the dataset.")
+    else:
+        st.subheader(f"Recommendations for User {user_id}:")
+        for title, score in recs:
+            st.write(f"⭐ {title} (Score: {score:.2f})")
